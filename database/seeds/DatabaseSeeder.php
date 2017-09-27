@@ -14,24 +14,34 @@ class DatabaseSeeder extends Seeder
         DB::table('entidades')->insert([
             'nombre' => "Comité Académico",
         ]);
+
+        DB::table('roles')->insert([
+            'nombre_rol' => "Administrador",
+        ]);
+        DB::table('roles')->insert([
+            'nombre_rol' => "Profesor",
+        ]);
+        DB::table('roles')->insert([
+            'nombre_rol' => "Secretaria",
+        ]);
         // $this->call(UsersTableSeeder::class);
         DB::table('users')->insert([
-            'nombres' => "Administrador",
-            'apellidos' => "Absoluto",
+            'nombres' => "Sandra ",
+            'apellidos' => "Sajonero David",
             'telefono' => '3158025140',
-            'rol' => "Admin",
+            'rol_id' => 1,
             'entidad_id' =>1,
-            'email' => 'admin@unicesar.edu.co',
+            'email' => 'samy@unicesar.edu.co',
             'password' => bcrypt('123456'),
         ]);
 
         DB::table('users')->insert([
-            'nombres' => "Secretaria",
+            'nombres' => "Carlos amaya",
             'apellidos' => "Absoluto",
             'telefono' => '3158025140',
-            'rol' => "Secretaria",
+            'rol_id' => 2,
             'entidad_id' =>1,
-            'email' => 'secretaria@unicesar.edu.co',
+            'email' => 'carlos@unicesar.edu.co',
             'password' => bcrypt('123456'),
         ]);
     }

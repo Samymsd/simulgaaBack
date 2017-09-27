@@ -21,6 +21,7 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 
 
 Route::resource('user', 'UserController');
+Route::resource('rol', 'RolController');
 
 
 //Login

@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Rol;
 use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-
-
 use App\Entidades\Respuesta;
 
 class UserController extends Controller
@@ -18,6 +17,8 @@ class UserController extends Controller
       //  echo "Entroooooooooooooooo";
        // User::create($request->all());
         $datos= request()->all();
+
+        //return response()->json($datos);
         if(!empty($datos["nombres"] ) &&
             !empty($datos["apellidos"]) &&
             !empty($datos["email"] )&&
@@ -26,9 +27,12 @@ class UserController extends Controller
             $usuario = User::where('email', $datos["email"])->first();
 
             if(count($usuario) == 0){
-
                 $datos["password"] = Hash::make($datos["password"]);
+                $datos["entidad_id"] =1;
+
                 $usuario= new User($datos);
+
+              //  return response()->json($usuario);
 
                 if($usuario->save()){
                     $respuesta->error = false;
@@ -108,7 +112,11 @@ class UserController extends Controller
     public function index()
     {
         $respuesta = new Respuesta();
-        $users = User::all();
+
+
+                $users = User::join('roles', 'users.rol_id', '=', 'roles.id')
+                    ->select('users.*', 'roles.nombre_rol')
+                    ->get();
         if($users){
             $respuesta->error = false;
             $respuesta->mensaje = "Usuarios encontrados";
@@ -154,7 +162,10 @@ class UserController extends Controller
         if(!empty($datos["email"] )&&
             !empty($datos["password"])){
 
-            $usuario = User::where('email', $datos["email"])->first();
+            $usuario = User::join('roles', 'users.rol_id', '=', 'roles.id')
+                    -> where('email', $datos["email"])
+                    ->select('users.*', 'roles.nombre_rol')
+                    ->first();
 
             if(count($usuario) == 0){
                 $respuesta->error = true;
