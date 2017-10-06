@@ -15,7 +15,7 @@ class CreateReunionTable extends Migration
         Schema::create('reuniones', function (Blueprint $table) {
             $table->increments('id');
             $table->string('asunto');
-            $table->enum('estado', ['activa', 'cancelada']);
+            $table->enum('estado', ['En proceso', 'Programada','Cancelada','Aplazada']);
             $table->string('descripcion');
             $table->integer('participacion_minima');
             $table->string('lugar');
