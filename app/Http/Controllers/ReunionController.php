@@ -4,32 +4,36 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 
+
 use App\User;
 use App\Reunion;
 use App\UserReunion;
 use App\Entidad;
 use App\Entidades\Respuesta;
 use Illuminate\Support\Facades\DB;
+use DateTime;
+use DateInterval;
 
 class ReunionController extends Controller
 {
-    public function store(Request $request){
+    public function store(Request $request)
+    {
 
         $respuesta = new Respuesta();
         //  echo "Entroooooooooooooooo";
         // User::create($request->all());
-        $datos= request()->all();
+        $datos = request()->all();
 
         //return response()->json($datos);
 
-        if(!empty($datos["participantes"] ) &&
-            !empty($datos["descripcion"] ) &&
+        if (!empty($datos["participantes"]) &&
+            !empty($datos["descripcion"]) &&
             !empty($datos["asunto"]) &&
             !empty($datos["hora_inicial"]) &&
             !empty($datos["hora_final"]) &&
-           !empty($datos["fecha"]) &&
+            !empty($datos["fecha"]) &&
             !empty($datos["prioridad"]) &&
-            !empty($datos["participacion_minima"])&&
+            !empty($datos["participacion_minima"]) &&
             !empty($datos["lugar"])) {
 
             $DatosReunion["descripcion"] = $datos["descripcion"];
@@ -37,118 +41,216 @@ class ReunionController extends Controller
             $DatosReunion["hora_inicial"] = $datos["hora_inicial"];
             $DatosReunion["hora_final"] = $datos["hora_final"];
             $DatosReunion["fecha"] = $datos["fecha"];
+            $DatosReunion["hastaNegociacion"] = $datos["hastaNegociacion"];
+            //$DatosReunion["hastaRepetir"] = $datos["hastaRepetir"];
+            //  return response()->json( $datos["hastaNegociacion"]);
             $DatosReunion["prioridad"] = $datos["prioridad"];
             $DatosReunion["participacion_minima"] = $datos["participacion_minima"];
             $DatosReunion["lugar"] = $datos["lugar"];
 
             $participantes = $datos["participantes"];
             // return response()->json($participantes);
-            if ($this->validarParticipantes($participantes)) {
-                $DatosReunion['estado'] = "Programada";
-                $reunion = new Reunion($DatosReunion);
+
+
+            if (!empty($datos["hastaRepetir"])) {
 
 
 
-                $userCreator = $this->getCreator($participantes);
-
-                if ($userCreator) { //Si el usuario existe
-                    if ($this->validarAsistencia($userCreator['id'], $reunion->fecha,
-                        $reunion->hora_inicial, $reunion->hora_final)) {  //Si tiene el espacio libre
-
-                       ///*/ return response()->json($reunion);
-                        if ($reunion->save()) { //Guardamos la reunion
-
-                            //Guardamos en la agenda primeramente al usuario creador de la reuinon
-                            $DatosUserReunion['tipo_participante'] = $userCreator['tipo_participante'];
-                            $DatosUserReunion['asistencia'] = 'si';
-                            $DatosUserReunion['user_id'] = $userCreator['id'];
-                            $DatosUserReunion['reunion_id'] = $reunion->id;
-
-                            $intersecto = new UserReunion($DatosUserReunion);
-                            $intersecto->save();
+                $FechaReunion = new DateTime($datos["fecha"]);
+                $FechaHasta = new DateTime($datos["hastaRepetir"]);
 
 
-                            foreach ($participantes as $item) {
-                                //cuando agregas un participante
-                                //  return response()->json($DatosUserReunion);
-                                    if($item['tipo_participante']!='creador'){
-                                        if ($this->validarAsistencia($item['id'], $reunion->fecha,
-                                            $reunion->hora_inicial, $reunion->hora_final)) {
+                while ($FechaReunion < $FechaHasta) {
 
-                                            $DatosUserReunion['tipo_participante'] = $item['tipo_participante'];
-                                            $DatosUserReunion['asistencia'] = 'si';
-                                            $DatosUserReunion['user_id'] = $item['id'];
-                                            $DatosUserReunion['reunion_id'] = $reunion->id;
+                    $DatosReunion["fecha"] = date_format($FechaReunion, 'Y/m/d');
 
-                                            $intersecto = new UserReunion($DatosUserReunion);
-                                            $intersecto->save();
-                                        } else {
 
-                                            $DatosUserReunion['tipo_participante'] = $item['tipo_participante'];
-                                            $DatosUserReunion['asistencia'] = 'no';
-                                            $DatosUserReunion['user_id'] = $item['id'];
-                                            $DatosUserReunion['reunion_id'] = $reunion->id;
-                                            $intersecto = new UserReunion($DatosUserReunion);
-                                            $intersecto->save();
 
-                                        }
+                    if ($this->validarParticipantes($participantes)) {
+
+                        $DatosReunion['estado'] = "En proceso";
+                        $reunion = new Reunion($DatosReunion);
+
+                        $userCreator = $this->getCreator($participantes);
+
+                        if ($userCreator) { //Si el usuario existe
+                            if ($this->validarAsistencia($userCreator['id'], new DateTime($reunion->fecha),
+                                $reunion->hora_inicial, $reunion->hora_final)) {  //Si tiene el espacio libre el creador
+
+                                // print_r("Si tiene espacio el creador");
+                                // exit();
+                                if ($this->validarAsistenciaMiniminaAReunion(new DateTime($reunion->fecha),
+                                    $reunion->hora_inicial, $reunion->hora_final, $participantes,
+                                    $reunion->participacion_minima)) {
+
+
+                                    if ($this->saveReunion($reunion, $userCreator, $participantes)) {
+                                        $respuesta->error = false;
+                                        $respuesta->mensaje = "Datos guardados correctamente";
+                                    } else {
+                                        $respuesta->error = true;
+                                        $respuesta->mensaje = "Error al guardar la reunion";
                                     }
 
 
+                                } else {
+                                    // return phpinfo();
+
+                                    //print_r("No se puede en esta fecha");
+                                    //exit();
+
+                                    $fecha = $this->NegociarOtraFecha($reunion, $participantes);  //Buscamos una nueva fecha posible
+                                    if ($fecha != null) {
+                                        // return response()->json($fecha);
+                                        $reunion->fecha = $fecha;  //Asignamos la fecha a la reunion
+
+                                        if ($this->saveReunion($reunion, $userCreator, $participantes)) {
+                                            $respuesta->error = false;
+                                            $respuesta->mensaje = "Reunion guardada, en nueva fecha despues de la negociacion";
+                                            $respuesta->datos = $reunion;
+                                        } else {
+                                            $respuesta->error = true;
+                                            $respuesta->mensaje = "Error al guardar la reunion";
+                                        }
+
+
+                                    } else {
+                                        $respuesta->error = true;
+                                        $respuesta->mensaje = "No se ha podido nogociar una fecha en estas fechas";
+                                    }
+
+                                }
+
+                                ///*/ return response()->json($reunion);
+
+
+                            } else {
+
+                                $respuesta->error = true;
+                                $respuesta->mensaje = "Su agenda ya está ocupada para ese día y hora";
                             }
-                            $respuesta->error = false;
-                            $respuesta->mensaje = "Datos guardados correctamente";
 
-                        }else{
+                        } else {
+
                             $respuesta->error = true;
-                            $respuesta->mensaje = "Error al guardar la reunion";
+                            $respuesta->mensaje = "No hay un usuario creador de la reunion";
                         }
-
 
                     } else {
 
                         $respuesta->error = true;
-                        $respuesta->mensaje = "Su agenda ya está ocupada para ese día y hora";
+                        $respuesta->mensaje = "Error en los participantes";
+                    }
+
+                    $FechaReunion->add(new DateInterval('P7D'));
+
+                }
+
+            } else {
+                if ($this->validarParticipantes($participantes)) {
+
+                    $DatosReunion['estado'] = "En proceso";
+                    $reunion = new Reunion($DatosReunion);
+
+                    $userCreator = $this->getCreator($participantes);
+
+                    if ($userCreator) { //Si el usuario existe
+                        if ($this->validarAsistencia($userCreator['id'], new DateTime($reunion->fecha),
+                            $reunion->hora_inicial, $reunion->hora_final)) {  //Si tiene el espacio libre el creador
+
+                            // print_r("Si tiene espacio el creador");
+                            // exit();
+                            if ($this->validarAsistenciaMiniminaAReunion(new DateTime($reunion->fecha),
+                                $reunion->hora_inicial, $reunion->hora_final, $participantes,
+                                $reunion->participacion_minima)) {
+
+
+                                if ($this->saveReunion($reunion, $userCreator, $participantes)) {
+                                    $respuesta->error = false;
+                                    $respuesta->mensaje = "Datos guardados correctamente";
+                                } else {
+                                    $respuesta->error = true;
+                                    $respuesta->mensaje = "Error al guardar la reunion";
+                                }
+
+
+                            } else {
+                                // return phpinfo();
+
+                               // print_r("No se puede en esta fecha");
+                               // exit();
+
+                                $fecha = $this->NegociarOtraFecha($reunion, $participantes);  //Buscamos una nueva fecha posible
+                                if ($fecha != null) {
+                                    // return response()->json($fecha);
+                                    $reunion->fecha = $fecha;  //Asignamos la fecha a la reunion
+
+                                    if ($this->saveReunion($reunion, $userCreator, $participantes)) {
+                                        $respuesta->error = false;
+                                        $respuesta->mensaje = "Reunion guardada, en nueva fecha despues de la negociacion";
+                                        $respuesta->datos = $reunion;
+                                    } else {
+                                        $respuesta->error = true;
+                                        $respuesta->mensaje = "Error al guardar la reunion";
+                                    }
+
+
+                                } else {
+                                    $respuesta->error = true;
+                                    $respuesta->mensaje = "No se ha podido nogociar una fecha en estas fechas";
+                                }
+
+                            }
+
+                            ///*/ return response()->json($reunion);
+
+
+                        } else {
+
+                            $respuesta->error = true;
+                            $respuesta->mensaje = "Su agenda ya está ocupada para ese día y hora";
+                        }
+
+                    } else {
+
+                        $respuesta->error = true;
+                        $respuesta->mensaje = "No hay un usuario creador de la reunion";
                     }
 
                 } else {
 
                     $respuesta->error = true;
-                    $respuesta->mensaje = "No hay un usuario creador de la reunion";
+                    $respuesta->mensaje = "Error en los participantes";
                 }
-
-            } else {
-
-                $respuesta->error = true;
-                $respuesta->mensaje = "Error en los participantes";
             }
-        }else{
-            $respuesta->error = true;
-            $respuesta->mensaje = "Error en los participantes";
 
-          }
+        }else {
+                $respuesta->error = true;
+                $respuesta->mensaje = "Faltan algunos datos";
+
+            }
 
 
+            return response()->json($respuesta);
+        }
 
-        return response()->json($respuesta);
-    }
 
     public function show($user_id)
     {
-       // return $user_id;
+        // return $user_id;
         $respuesta = new Respuesta();
-      //  $usuario = Reunion::where('email', $datos["email"])->first();
+        //  $usuario = Reunion::where('email', $datos["email"])->first();
 
         $users = Reunion::join('user_reunion', 'reuniones.id', '=', 'user_reunion.reunion_id')
-            ->select('reuniones.*','user_reunion.asistencia','user_reunion.tipo_participante')
+            ->select('reuniones.*', 'user_reunion.asistencia', 'user_reunion.tipo_participante')
             ->where('user_reunion.user_id', $user_id)
             ->get();
 
-        if($users){
+        if ($users) {
             $respuesta->error = false;
             $respuesta->mensaje = "Datos encontrados";
             $respuesta->datos = $users;
-        }else{
+        } else {
             $respuesta->error = true;
             $respuesta->mensaje = "No tiene reuniones";
         }
@@ -157,21 +259,27 @@ class ReunionController extends Controller
 
     public function showParticipaciones($user_id)
     {
-        // return $user_id;
+              // return $user_id;
         $respuesta = new Respuesta();
         //  $usuario = Reunion::where('email', $datos["email"])->first();
+        $hoy = strftime( "%Y-%m-%d-%H-%M-%S", time() );
+
+
 
         $users = Reunion::join('user_reunion', 'reuniones.id', '=', 'user_reunion.reunion_id')
-            ->select('reuniones.*','user_reunion.asistencia','user_reunion.id as user_reunion_id')
+            ->select('reuniones.*', 'user_reunion.asistencia', 'user_reunion.id as user_reunion_id')
             ->where('user_reunion.user_id', $user_id)
             ->where('user_reunion.tipo_participante', "participante")
+            ->where('reuniones.fecha','>=',$hoy)
             ->get();
 
-        if($users){
+
+
+        if ($users) {
             $respuesta->error = false;
             $respuesta->mensaje = "Datos encontrados";
             $respuesta->datos = $users;
-        }else{
+        } else {
             $respuesta->error = true;
             $respuesta->mensaje = "No tiene reuniones";
         }
@@ -180,21 +288,23 @@ class ReunionController extends Controller
 
     public function showCreaciones($user_id)
     {
+        $hoy = strftime( "%Y-%m-%d-%H-%M-%S", time() );
         // return $user_id;
         $respuesta = new Respuesta();
         //  $usuario = Reunion::where('email', $datos["email"])->first();
 
         $users = Reunion::join('user_reunion', 'reuniones.id', '=', 'user_reunion.reunion_id')
-            ->select('reuniones.*','user_reunion.asistencia')
+            ->select('reuniones.*', 'user_reunion.asistencia')
             ->where('user_reunion.user_id', $user_id)
             ->where('user_reunion.tipo_participante', "creador")
+            ->where('reuniones.fecha','>=',$hoy)
             ->get();
 
-        if($users){
+        if ($users) {
             $respuesta->error = false;
             $respuesta->mensaje = "Datos encontrados";
             $respuesta->datos = $users;
-        }else{
+        } else {
             $respuesta->error = true;
             $respuesta->mensaje = "No tiene reuniones";
         }
@@ -206,26 +316,28 @@ class ReunionController extends Controller
      * @param $participantes
      * @return \Illuminate\Http\JsonResponse
      */
-    public function validarParticipantes($participantes){
-        $cont =0;
-        foreach($participantes as $item){
+    public function validarParticipantes($participantes)
+    {
+        $cont = 0;
+        foreach ($participantes as $item) {
             $user = User::find($item['id']);
-            if(!$user){
-              $cont++;
+            if (!$user) {
+                $cont++;
             }
 
         }
 
-        if($cont>0){
+        if ($cont > 0) {
             return false;
-        }else{
+        } else {
             return true;
         }
     }
 
-    public function getCreator($participantes){
-        foreach($participantes as $item){
-            if($item['tipo_participante']=="creador"){
+    public function getCreator($participantes)
+    {
+        foreach ($participantes as $item) {
+            if ($item['tipo_participante'] == "creador") {
                 return $item;
             }
         }
@@ -243,28 +355,28 @@ class ReunionController extends Controller
         $respuesta = new Respuesta();
         $datos = $request->all();
 
-        if(!empty($datos["descripcion"] ) &&
+        if (!empty($datos["descripcion"]) &&
             !empty($datos["asunto"]) &&
             !empty($datos["hora_inicial"]) &&
             !empty($datos["hora_final"]) &&
             !empty($datos["fecha"]) &&
             !empty($datos["prioridad"]) &&
-            !empty($datos["participacion_minima"])&&
-            !empty($datos["lugar"])){
+            !empty($datos["participacion_minima"]) &&
+            !empty($datos["lugar"])) {
 
             $reunion = Reunion::find($id);
 
-            if($reunion){
+            if ($reunion) {
                 $reunion->update($datos);
                 $respuesta->error = false;
                 $respuesta->mensaje = "Datos actualizados existosamente";
                 $respuesta->datos = $reunion;
-            }else{
+            } else {
                 $respuesta->error = true;
                 $respuesta->mensaje = "Usuario No encontrado";
             }
 
-        }else{
+        } else {
             $respuesta->error = true;
             $respuesta->mensaje = "Faltan campos por llenar";
         }
@@ -279,7 +391,8 @@ class ReunionController extends Controller
      * @param $hora_ini
      * @param $hora_fin
      */
-    public  function validarAsistencia($usuario_id,$fecha,$hora_ini,$hora_fin){
+    public function validarAsistencia($usuario_id, $fecha, $hora_ini, $hora_fin)
+    {
 
 
         $reuniones = UserReunion::where('user_id', $usuario_id)
@@ -287,54 +400,72 @@ class ReunionController extends Controller
             ->get();
 
 
-        if(count($reuniones) > 0){
+        if (count($reuniones) > 0) {
 
-            foreach($reuniones as $item){
+            foreach ($reuniones as $item) {
 
-                $id =$item->reunion_id;
+                $id = $item->reunion_id;
 
-                $cita =Reunion::find($id);
+                $cita = Reunion::find($id);
 
-                if($cita){
-
-
-                    if($cita->fecha==$fecha){
+                if ($cita) {
 
 
+                    // print_r($cita->fecha);
+                    //print_r($fecha);
+                    // exit();
 
-                        if($hora_ini>= $cita->hora_inicial && $hora_ini<$cita->hora_final ||
-                            $hora_fin> $cita->hora_inicial && $hora_fin <=$cita->hora_final){
+
+
+                    $f1 = new DateTime($cita->fecha);
+
+
+                    if(is_string($fecha)){
+                        $f2 = new DateTime($fecha);
+                    }else{
+                        $f2 = $fecha;
+                    }
+
+
+                    //exit();
+
+                    $String1 = date_format($f1, 'Y/m/d');
+                    $String2 = date_format($f2, 'Y/m/d');
+
+                    if ($String1 == $String2) {
+
+                        if ($hora_ini >= $cita->hora_inicial && $hora_ini < $cita->hora_final ||
+                            $hora_fin > $cita->hora_inicial && $hora_fin <= $cita->hora_final) {
                             return false;
-                        }else{
+                        } else {
 
                         }
                     }
                 }
 
 
-
             }
 
             return true;
 
-        }
-        else{
+        } else {
             return true;
         }
 
 
     }
 
-    public  function updateAsistencia(Request $request){
+    public function updateAsistencia(Request $request)
+    {
         $respuesta = new Respuesta();
         // echo "Entroooooooooooooooo";
-        $datos= request()->all();
-       //return response()->json($datos);
-        if($datos){
+        $datos = request()->all();
+        //return response()->json($datos);
+        if ($datos) {
             $userReunion = UserReunion::find($datos["user_reunion_id"]);
 
-           // $reunion = Reunion::find()->get();
-            if($userReunion) {
+            // $reunion = Reunion::find()->get();
+            if ($userReunion) {
                 $users = User::join('user_reunion', 'users.id', '=', 'user_reunion.user_id')
                     ->where('user_reunion.reunion_id', $datos["id"])
                     ->where('user_reunion.asistencia', "si")
@@ -344,24 +475,24 @@ class ReunionController extends Controller
                 $reunion = Reunion::find($datos["id"]);
 
 
-                if($datos["asistencia"]=="si"){
+                if ($datos["asistencia"] == "si") {
                     $userReunion->update($datos);
                     $respuesta->error = false;
                     $respuesta->mensaje = "Datos actualizados";
                     $respuesta->datos = $userReunion;
-                }else{
-                  // return response()->json($userReunion);
+                } else {
+                    // return response()->json($userReunion);
 
-                    if($userReunion["asistencia"]=="no"){
+                    if ($userReunion["asistencia"] == "no") {
                         $respuesta->error = false;
                         $respuesta->mensaje = "Datos actualizados";
-                    }else{
-                        if(count($users)> $reunion['participacion_minima']){
+                    } else {
+                        if (count($users) > $reunion['participacion_minima']) {
                             $userReunion->update($datos);
                             $respuesta->error = false;
                             $respuesta->mensaje = "Datos actualizados";
                             $respuesta->datos = $userReunion;
-                        }else{
+                        } else {
                             $respuesta->error = true;
                             $respuesta->mensaje = "No puede abandonar la reunion";
                         }
@@ -370,7 +501,7 @@ class ReunionController extends Controller
                 //return response()->json($userReunion);
 
 
-            }else{
+            } else {
                 $respuesta->error = true;
                 $respuesta->mensaje = "No se encuentra esta reunion";
             }
@@ -378,4 +509,148 @@ class ReunionController extends Controller
 
         return response()->json($respuesta);
     }
+
+    /**
+     * Método que permite validar que en una fecha determinada, se puede dar o no la sistencia minima de participantes
+     * @param $fecha
+     * @param $hora_ini
+     * @param $hora_fin
+     * @param $participantes
+     * @param $asistenciaMinima
+     * @return bool
+     */
+    public function validarAsistenciaMiniminaAReunion($fecha, $hora_ini, $hora_fin, $participantes, $asistenciaMinima)
+    {
+
+
+        // $String1 = date_format($fecha, 'd/m/y');
+        // print_r($String1+" || ");
+
+        $cont = 0;
+
+        foreach ($participantes as $item) {
+            /*
+            print_r($item['id']);
+            print_r("**********");
+             print_r($fecha);
+            print_r("**********");
+            print_r($hora_ini);
+            print_r("**********");
+            print_r($hora_fin);
+            print_r("**********");
+            */
+
+            if ($this->validarAsistencia($item['id'], $fecha, $hora_ini, $hora_fin)) {
+                $cont++;
+            }
+        }
+        // print_r($cont);
+        //print_r($asistenciaMinima);
+        //exit();
+
+        // print_r($cont+" "+$asistenciaMinima+"||");
+        if ($cont >= $asistenciaMinima) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Método para guardar la Reunion
+     * @param $reunion
+     * @param $userCreator
+     * @param $participantes
+     *
+     */
+    private function saveReunion($reunion, $userCreator, $participantes)
+    {
+        $reunion->estado = "Programada";
+        if ($reunion->save()) { //Guardamos la reunion
+
+            //Guardamos en la agenda primeramente al usuario creador de la reuinon
+            $DatosUserReunion['tipo_participante'] = $userCreator['tipo_participante'];
+            $DatosUserReunion['asistencia'] = 'si';
+            $DatosUserReunion['user_id'] = $userCreator['id'];
+            $DatosUserReunion['reunion_id'] = $reunion->id;
+
+            $intersecto = new UserReunion($DatosUserReunion);
+            $intersecto->save();
+
+
+            foreach ($participantes as $item) {
+                //cuando agregas un participante
+                //  return response()->json($DatosUserReunion);
+                if ($item['tipo_participante'] != 'creador') {
+                    if ($this->validarAsistencia($item['id'], $reunion->fecha,
+                        $reunion->hora_inicial, $reunion->hora_final)) {
+
+                        $DatosUserReunion['tipo_participante'] = $item['tipo_participante'];
+                        $DatosUserReunion['asistencia'] = 'si';
+                        $DatosUserReunion['user_id'] = $item['id'];
+                        $DatosUserReunion['reunion_id'] = $reunion->id;
+
+                        $intersecto = new UserReunion($DatosUserReunion);
+                        $intersecto->save();
+                    } else {
+
+                        $DatosUserReunion['tipo_participante'] = $item['tipo_participante'];
+                        $DatosUserReunion['asistencia'] = 'no';
+                        $DatosUserReunion['user_id'] = $item['id'];
+                        $DatosUserReunion['reunion_id'] = $reunion->id;
+                        $intersecto = new UserReunion($DatosUserReunion);
+                        $intersecto->save();
+
+                    }
+                }
+
+
+            }
+            return true;
+
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * @param $reunion
+     * @param $participantes
+     * @return DateTime
+     */
+    private function NegociarOtraFecha($reunion, $participantes)
+    {
+
+        $fechaInicial = new DateTime($reunion->fecha);
+
+        $fecha = new DateTime($reunion->fecha);
+
+
+        $num  = $reunion->hastaNegociacion;
+
+        $cont =0;
+
+        // $bandera = true;
+
+
+        while ($cont < $num) {
+
+            $fecha->add(new DateInterval('P1D')); //Agregamos un dia a la fecha
+
+            $result = $this->validarAsistenciaMiniminaAReunion($fecha,
+                $reunion->hora_inicial, $reunion->hora_final, $participantes,
+                $reunion->participacion_minima);
+
+            if ($result == true) {
+                return $fecha;
+            }
+
+            $cont++;
+        }
+
+        return null;
+
+    }
+
 }
+

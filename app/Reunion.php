@@ -19,7 +19,9 @@ class Reunion extends Model
         'lugar',
         'hora_inicial','hora_final',
         'fecha',
-        'prioridad'
+        'prioridad',
+        'hastaNegociacion',
+        'hastaRepetir'
     ];
 
     protected $dates = ['deleted_at'];
