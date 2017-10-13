@@ -12,6 +12,7 @@ use App\Entidad;
 use App\Entidades\Respuesta;
 use Illuminate\Support\Facades\DB;
 use DateTime;
+use Carbon\Carbon;
 use DateInterval;
 
 class ReunionController extends Controller
@@ -24,6 +25,8 @@ class ReunionController extends Controller
         // User::create($request->all());
         $datos = request()->all();
 
+
+
         //return response()->json($datos);
 
         if (!empty($datos["participantes"]) &&
@@ -33,6 +36,7 @@ class ReunionController extends Controller
             !empty($datos["hora_final"]) &&
             !empty($datos["fecha"]) &&
             !empty($datos["prioridad"]) &&
+            !empty($datos["tipo"]) &&
             !empty($datos["participacion_minima"]) &&
             !empty($datos["lugar"])) {
 
@@ -47,6 +51,7 @@ class ReunionController extends Controller
             $DatosReunion["prioridad"] = $datos["prioridad"];
             $DatosReunion["participacion_minima"] = $datos["participacion_minima"];
             $DatosReunion["lugar"] = $datos["lugar"];
+            $DatosReunion["tipo"] = $datos["tipo"];
 
             $participantes = $datos["participantes"];
             // return response()->json($participantes);
@@ -60,7 +65,7 @@ class ReunionController extends Controller
                 $FechaHasta = new DateTime($datos["hastaRepetir"]);
 
 
-                while ($FechaReunion < $FechaHasta) {
+                while ($FechaReunion <= $FechaHasta) {
 
                     $DatosReunion["fecha"] = date_format($FechaReunion, 'Y/m/d');
 
@@ -244,6 +249,7 @@ class ReunionController extends Controller
         $users = Reunion::join('user_reunion', 'reuniones.id', '=', 'user_reunion.reunion_id')
             ->select('reuniones.*', 'user_reunion.asistencia', 'user_reunion.tipo_participante')
             ->where('user_reunion.user_id', $user_id)
+            ->where('reuniones.estado', 'Programada')
             ->get();
 
         if ($users) {
@@ -361,6 +367,7 @@ class ReunionController extends Controller
             !empty($datos["hora_final"]) &&
             !empty($datos["fecha"]) &&
             !empty($datos["prioridad"]) &&
+            !empty($datos["tipo"]) &&
             !empty($datos["participacion_minima"]) &&
             !empty($datos["lugar"])) {
 
@@ -416,13 +423,12 @@ class ReunionController extends Controller
                     // exit();
 
 
-
                     $f1 = new DateTime($cita->fecha);
 
 
-                    if(is_string($fecha)){
+                    if (is_string($fecha)) {
                         $f2 = new DateTime($fecha);
-                    }else{
+                    } else {
                         $f2 = $fecha;
                     }
 
@@ -434,21 +440,62 @@ class ReunionController extends Controller
 
                     if ($String1 == $String2) {
 
-                        if ($hora_ini >= $cita->hora_inicial && $hora_ini < $cita->hora_final ||
-                            $hora_fin > $cita->hora_inicial && $hora_fin <= $cita->hora_final) {
-                            return false;
-                        } else {
+                        //$date = Carbon::now();
+                        $hora_ini =$this->getHoraCarbon($hora_ini);
+                        $hora_fin =$this->getHoraCarbon($hora_fin);
 
+                        $hora_ini_DB = new DateTime($cita->hora_inicial);
+                        $hora_fin_DB = new DateTime($cita->hora_final);
+/**
+
+                        if($hora_fin>$hora_ini_DB){
+                            // print_r("entro 1");
+                        //    print_r($hora_ini);
+                           // print_r($hora_ini_DB);
+                            exit;
+                        }else{
+                            print_r("entro 2");
+                              print_r($hora_ini);
+                            print_r($hora_ini_DB);
+                            exit;
+                        }  */
+
+                       // $hora_ini_DB =$this->getHoraCarbon($cita->hora_inicial);
+                       // $hora_fin_DB =$this->getHoraCarbon($cita->hora_final);
+
+
+
+                        if ($hora_ini < $hora_ini_DB && $hora_fin <= $hora_ini_DB) {
+                            // print_r("entro 1  ");
+                        //exit();
+                            return true;
                         }
+
+
+                        if ($hora_ini >= $hora_ini_DB && $hora_ini >= $hora_fin_DB) {
+                            //print_r("entro 2  ");
+                            //exit();
+                            return true;
+                        }
+
+
+                        /**
+                         * if ($hora_ini >= $cita->hora_inicial && $hora_ini < $cita->hora_final ||
+                         * $hora_fin > $cita->hora_inicial && $hora_fin <= $cita->hora_final) {
+                         * return false;
+                         * } else {
+                         *
+                         * }  **/
                     }
                 }
 
 
+
             }
 
-            return true;
+            return false;
 
-        } else {
+        }else {
             return true;
         }
 
@@ -650,6 +697,22 @@ class ReunionController extends Controller
 
         return null;
 
+    }
+
+
+    private function getHoraCarbon($string){
+
+
+        $date = Carbon::now();
+        // Ejemplo 1
+        //$pizza  = "porción1 porción2 porción3 porción4 porción5 porción6";
+        $porciones = explode(":", $string);
+       // print_r($porciones);
+        //print_r('**********************');
+        $date->setTime($porciones[0],$porciones[1]);
+
+
+       return $date;
     }
 
 }

@@ -23,6 +23,7 @@ class CreateReunionTable extends Migration
             $table->time('hora_inicial');
             $table->date('fecha');
             $table->enum('prioridad', ['baja', 'alta']);
+            $table->enum('tipo', ['organizacion', 'personal']);
             $table->integer('hastaNegociacion')->nullable();;
             $table->date('hastaRepetir')->nullable();;
 

@@ -21,8 +21,15 @@ class Reunion extends Model
         'fecha',
         'prioridad',
         'hastaNegociacion',
-        'hastaRepetir'
+        'hastaRepetir',
+        'tipo'
     ];
 
     protected $dates = ['deleted_at'];
+
+
+    /**
+    public function UserReunion(){
+        return $this->hasMany('App\UserReunion', 'reunion_id', 'id');
+    }  **/
 }
