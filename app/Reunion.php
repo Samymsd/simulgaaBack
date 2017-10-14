@@ -29,7 +29,17 @@ class Reunion extends Model
 
 
     /**
+     * The roles that belong to the user.
+     */
+
+    /*
+    public function usuarios()
+    {
+        return $this->belongsToMany('App\User');
+    }
+  */
+
     public function UserReunion(){
         return $this->hasMany('App\UserReunion', 'reunion_id', 'id');
-    }  **/
+    }
 }

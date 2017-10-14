@@ -35,6 +35,8 @@ Route::post('agenda/reunion/create', 'ReunionController@store');
 Route::get('agenda/reunion/{user_id}', 'ReunionController@show');
 Route::get('agenda/reunion/participaciones/{user_id}', 'ReunionController@showParticipaciones');
 Route::get('agenda/reunion/creaciones/{user_id}', 'ReunionController@showCreaciones');
+Route::get('agenda/reunion/historico/{user_id}', 'ReunionController@showHistorico');
+Route::get('agenda/reunion/creacionesPersonales/{user_id}', 'ReunionController@showCreacionesPersonales');
 Route::put('agenda/reunion/update/{id}', 'ReunionController@update');
 
 Route::post('agenda/reunion/participacion', 'ReunionController@updateAsistencia');

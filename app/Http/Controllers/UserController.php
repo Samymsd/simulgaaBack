@@ -29,7 +29,7 @@ class UserController extends Controller
             if(count($usuario) == 0){
                 $datos["password"] = Hash::make($datos["password"]);
                 $datos["entidad_id"] =1;
-
+                $datos["estado"] ="on";
                 $usuario= new User($datos);
 
               //  return response()->json($usuario);
@@ -151,7 +151,6 @@ class UserController extends Controller
 
     }
 
-
     public function  login(Request $request){
 
 
@@ -178,9 +177,14 @@ class UserController extends Controller
                 $pas2 = $usuario->password;
 
                 if(Hash::check($pas1,$pas2 )){
-                    $respuesta->error = false;
-                    $respuesta->mensaje = "Acceso concedido";
-                    $respuesta->datos = $usuario;
+                   if($usuario->estado=="on"){
+                       $respuesta->error = false;
+                       $respuesta->mensaje = "Acceso concedido";
+                       $respuesta->datos = $usuario;
+                   }else{
+                       $respuesta->error = true;
+                       $respuesta->mensaje = "Usuario desactivado, comuniquese con el administrador del sistema";
+                   }
                 }else{
                     $respuesta->error = true;
                     $respuesta->mensaje = "Usuario y password incorrecto";

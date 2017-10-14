@@ -25,8 +25,6 @@ class ReunionController extends Controller
         // User::create($request->all());
         $datos = request()->all();
 
-
-
         //return response()->json($datos);
 
         if (!empty($datos["participantes"]) &&
@@ -239,18 +237,49 @@ class ReunionController extends Controller
             return response()->json($respuesta);
         }
 
-
     public function show($user_id)
     {
-        // return $user_id;
+        //return $user_id;
         $respuesta = new Respuesta();
         //  $usuario = Reunion::where('email', $datos["email"])->first();
+
 
         $users = Reunion::join('user_reunion', 'reuniones.id', '=', 'user_reunion.reunion_id')
             ->select('reuniones.*', 'user_reunion.asistencia', 'user_reunion.tipo_participante')
             ->where('user_reunion.user_id', $user_id)
             ->where('reuniones.estado', 'Programada')
+            ->orderBy('reuniones.fecha', 'DESC')
             ->get();
+
+
+
+
+        if ($users) {
+            $respuesta->error = false;
+            $respuesta->mensaje = "Datos encontrados";
+            $respuesta->datos = $users;
+        } else {
+            $respuesta->error = true;
+            $respuesta->mensaje = "No tiene reuniones";
+        }
+        return response()->json($respuesta);
+    }
+
+    public function showHistorico($user_id)
+    {
+        //return $user_id;
+        $respuesta = new Respuesta();
+        //  $usuario = Reunion::where('email', $datos["email"])->first();
+
+
+        $users = Reunion::join('user_reunion', 'reuniones.id', '=', 'user_reunion.reunion_id')
+            ->select('reuniones.*', 'user_reunion.asistencia', 'user_reunion.tipo_participante')
+            ->where('user_reunion.user_id', $user_id)
+            ->orderBy('reuniones.created_at', 'DESC')
+            ->get();
+
+
+
 
         if ($users) {
             $respuesta->error = false;
@@ -268,7 +297,15 @@ class ReunionController extends Controller
               // return $user_id;
         $respuesta = new Respuesta();
         //  $usuario = Reunion::where('email', $datos["email"])->first();
-        $hoy = strftime( "%Y-%m-%d-%H-%M-%S", time() );
+        //$hoy = strftime( "%Y-%m-%d-%H-%M-%S", time() );
+        $hoy = Carbon::now();
+        $hoy->setTimezone('-5');
+        $hoy->toDateString();
+
+        $siguiente_semana =Carbon::now();
+        $siguiente_semana->setTimezone('-5');
+        $siguiente_semana->addDays(7);
+        $siguiente_semana->toDateString();
 
 
 
@@ -277,6 +314,10 @@ class ReunionController extends Controller
             ->where('user_reunion.user_id', $user_id)
             ->where('user_reunion.tipo_participante', "participante")
             ->where('reuniones.fecha','>=',$hoy)
+            ->where('reuniones.fecha','<=',$siguiente_semana)
+            ->where('reuniones.tipo','=',"organizacion")
+            ->where('reuniones.estado','=',"Programada")
+            ->orderBy('reuniones.fecha', 'ASC')
             ->get();
 
 
@@ -304,6 +345,49 @@ class ReunionController extends Controller
             ->where('user_reunion.user_id', $user_id)
             ->where('user_reunion.tipo_participante', "creador")
             ->where('reuniones.fecha','>=',$hoy)
+            ->where('reuniones.tipo','=',"organizacion")
+            ->orderBy('reuniones.created_at', 'DESC')
+            ->get();
+
+        if ($users) {
+            $respuesta->error = false;
+            $respuesta->mensaje = "Datos encontrados";
+            $respuesta->datos = $users;
+        } else {
+            $respuesta->error = true;
+            $respuesta->mensaje = "No tiene reuniones";
+        }
+        return response()->json($respuesta);
+    }
+
+    public function showCreacionesPersonales($user_id)
+    {
+        //$hoy = strftime( "%Y-%m-%d-%H-%M-%S", time() );
+
+        $hoy = Carbon::now();
+        $hoy->setTimezone('-5');
+        $hoy->toDateString();
+
+        $siguiente_semana =Carbon::now();
+        $siguiente_semana->setTimezone('-5');
+        $siguiente_semana->addDays(7);
+        $siguiente_semana->toDateString();
+
+
+        // return $user_id;
+        $respuesta = new Respuesta();
+        //  $usuario = Reunion::where('email', $datos["email"])->first();
+
+
+
+        $users = Reunion::join('user_reunion', 'reuniones.id', '=', 'user_reunion.reunion_id')
+            ->select('reuniones.*', 'user_reunion.asistencia')
+            ->where('user_reunion.user_id', $user_id)
+            ->where('user_reunion.tipo_participante', "creador")
+            ->where('reuniones.fecha','>=',$hoy)
+            ->where('reuniones.fecha','<=',$siguiente_semana)
+            ->where('reuniones.tipo','=',"personal")
+            ->orderBy('reuniones.created_at', 'DESC')
             ->get();
 
         if ($users) {
@@ -402,6 +486,7 @@ class ReunionController extends Controller
     {
 
 
+
         $reuniones = UserReunion::where('user_id', $usuario_id)
             ->select('*')
             ->get();
@@ -409,13 +494,16 @@ class ReunionController extends Controller
 
         if (count($reuniones) > 0) {
 
+
             foreach ($reuniones as $item) {
 
                 $id = $item->reunion_id;
 
+
                 $cita = Reunion::find($id);
 
                 if ($cita) {
+
 
 
                     // print_r($cita->fecha);
@@ -438,7 +526,9 @@ class ReunionController extends Controller
                     $String1 = date_format($f1, 'Y/m/d');
                     $String2 = date_format($f2, 'Y/m/d');
 
+
                     if ($String1 == $String2) {
+
 
                         //$date = Carbon::now();
                         $hora_ini =$this->getHoraCarbon($hora_ini);
@@ -446,8 +536,10 @@ class ReunionController extends Controller
 
                         $hora_ini_DB = new DateTime($cita->hora_inicial);
                         $hora_fin_DB = new DateTime($cita->hora_final);
-/**
 
+/**
+// print_r("entro 1  ");
+//exit();
                         if($hora_fin>$hora_ini_DB){
                             // print_r("entro 1");
                         //    print_r($hora_ini);
@@ -465,18 +557,15 @@ class ReunionController extends Controller
 
 
 
-                        if ($hora_ini < $hora_ini_DB && $hora_fin <= $hora_ini_DB) {
+                        if ($hora_ini < $hora_ini_DB && $hora_fin <= $hora_ini_DB||
+                            $hora_ini >= $hora_ini_DB && $hora_ini >= $hora_fin_DB) {
                             // print_r("entro 1  ");
-                        //exit();
-                            return true;
+
+                        }else{
+                            return false;
                         }
 
 
-                        if ($hora_ini >= $hora_ini_DB && $hora_ini >= $hora_fin_DB) {
-                            //print_r("entro 2  ");
-                            //exit();
-                            return true;
-                        }
 
 
                         /**
@@ -487,13 +576,16 @@ class ReunionController extends Controller
                          *
                          * }  **/
                     }
+
+
                 }
 
 
 
             }
 
-            return false;
+
+               return true;
 
         }else {
             return true;
