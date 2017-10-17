@@ -55,6 +55,9 @@ class ReunionController extends Controller
             // return response()->json($participantes);
 
 
+            $DatosReunion["serie"] = rand(1, 99999999999999999999);
+
+
             if (!empty($datos["hastaRepetir"])) {
 
 
@@ -442,35 +445,89 @@ class ReunionController extends Controller
     public function update(Request $request, $id)
     {
 
+
         $respuesta = new Respuesta();
         $datos = $request->all();
 
-        if (!empty($datos["descripcion"]) &&
-            !empty($datos["asunto"]) &&
-            !empty($datos["hora_inicial"]) &&
-            !empty($datos["hora_final"]) &&
-            !empty($datos["fecha"]) &&
-            !empty($datos["prioridad"]) &&
-            !empty($datos["tipo"]) &&
-            !empty($datos["participacion_minima"]) &&
-            !empty($datos["lugar"])) {
 
-            $reunion = Reunion::find($id);
+        if($datos['tipo']=="personal"){
 
-            if ($reunion) {
-                $reunion->update($datos);
-                $respuesta->error = false;
-                $respuesta->mensaje = "Datos actualizados existosamente";
-                $respuesta->datos = $reunion;
+            if (!empty($datos["descripcion"]) &&
+                !empty($datos["asunto"]) &&
+                !empty($datos["hora_inicial"]) &&
+                !empty($datos["hora_final"]) &&
+                !empty($datos["estado"]) &&
+                !empty($datos["lugar"])) {
+
+                $reunion = Reunion::find($id);
+
+                if ($reunion) {
+                    $reuniones = Reunion::where('serie', $reunion->serie)
+                        ->select('*')
+                        ->get();
+                    foreach ($reuniones as $r) {
+                        $r->descripcion =$datos["descripcion"];
+                        $r->asunto = $datos["asunto"];
+                        $r->hora_inicial =$datos["hora_inicial"];
+                        $r->hora_final =$datos["hora_final"];
+                        $r->lugar =$datos["lugar"];
+                        $r->estado =$datos["estado"];
+                        $r->save();
+
+                    }
+
+                    $respuesta->error = false;
+                    $respuesta->mensaje = "Datos actualizados existosamente";
+                    $respuesta->datos = $reunion;
+                } else {
+                    $respuesta->error = true;
+                    $respuesta->mensaje = "Reunion No encontrado";
+                }
+
             } else {
                 $respuesta->error = true;
-                $respuesta->mensaje = "Usuario No encontrado";
+                $respuesta->mensaje = "Faltan campos por llenar";
             }
-
-        } else {
-            $respuesta->error = true;
-            $respuesta->mensaje = "Faltan campos por llenar";
         }
+        else{
+
+            if (!empty($datos["descripcion"]) &&
+                !empty($datos["asunto"]) &&
+                !empty($datos["participacion_minima"]) &&
+                !empty($datos["estado"]) &&
+                !empty($datos["lugar"])) {
+
+                $reunion = Reunion::find($id);
+
+                if ($reunion) {
+                    $reuniones = Reunion::where('serie', $reunion->serie)
+                        ->select('*')
+                        ->get();
+                    foreach ($reuniones as $r) {
+                        $r->descripcion =$datos["descripcion"];
+                        $r->asunto = $datos["asunto"];
+                        $r->participacion_minima =$datos["participacion_minima"];
+                        $r->lugar =$datos["lugar"];
+                        $r->estado =$datos["estado"];
+                        $r->save();
+                    }
+
+                    $respuesta->error = false;
+                    $respuesta->mensaje = "Datos actualizados existosamente";
+                    $respuesta->datos = $reunion;
+                } else {
+                    $respuesta->error = true;
+                    $respuesta->mensaje = "Reunion No encontrado";
+                }
+
+            } else {
+                $respuesta->error = true;
+                $respuesta->mensaje = "Faltan campos por llenar";
+            }
+        }
+
+      //  return response()->json($datos);
+
 
         return response()->json($respuesta);
     }
@@ -504,83 +561,83 @@ class ReunionController extends Controller
 
                 if ($cita) {
 
+                     if($cita->estado=="Programada"){
+
+                         // print_r($cita->fecha);
+                         //print_r($fecha);
+                         // exit();
 
 
-                    // print_r($cita->fecha);
-                    //print_r($fecha);
-                    // exit();
+                         $f1 = new DateTime($cita->fecha);
 
 
-                    $f1 = new DateTime($cita->fecha);
+                         if (is_string($fecha)) {
+                             $f2 = new DateTime($fecha);
+                         } else {
+                             $f2 = $fecha;
+                         }
 
 
-                    if (is_string($fecha)) {
-                        $f2 = new DateTime($fecha);
-                    } else {
-                        $f2 = $fecha;
-                    }
+                         //exit();
+
+                         $String1 = date_format($f1, 'Y/m/d');
+                         $String2 = date_format($f2, 'Y/m/d');
 
 
-                    //exit();
-
-                    $String1 = date_format($f1, 'Y/m/d');
-                    $String2 = date_format($f2, 'Y/m/d');
+                         if ($String1 == $String2) {
 
 
-                    if ($String1 == $String2) {
+                             //$date = Carbon::now();
+                             $hora_ini =$this->getHoraCarbon($hora_ini);
+                             $hora_fin =$this->getHoraCarbon($hora_fin);
 
+                             $hora_ini_DB = new DateTime($cita->hora_inicial);
+                             $hora_fin_DB = new DateTime($cita->hora_final);
 
-                        //$date = Carbon::now();
-                        $hora_ini =$this->getHoraCarbon($hora_ini);
-                        $hora_fin =$this->getHoraCarbon($hora_fin);
+                             /**
+                             // print_r("entro 1  ");
+                             //exit();
+                             if($hora_fin>$hora_ini_DB){
+                             // print_r("entro 1");
+                             //    print_r($hora_ini);
+                             // print_r($hora_ini_DB);
+                             exit;
+                             }else{
+                             print_r("entro 2");
+                             print_r($hora_ini);
+                             print_r($hora_ini_DB);
+                             exit;
+                             }  */
 
-                        $hora_ini_DB = new DateTime($cita->hora_inicial);
-                        $hora_fin_DB = new DateTime($cita->hora_final);
-
-/**
-// print_r("entro 1  ");
-//exit();
-                        if($hora_fin>$hora_ini_DB){
-                            // print_r("entro 1");
-                        //    print_r($hora_ini);
-                           // print_r($hora_ini_DB);
-                            exit;
-                        }else{
-                            print_r("entro 2");
-                              print_r($hora_ini);
-                            print_r($hora_ini_DB);
-                            exit;
-                        }  */
-
-                       // $hora_ini_DB =$this->getHoraCarbon($cita->hora_inicial);
-                       // $hora_fin_DB =$this->getHoraCarbon($cita->hora_final);
-
-
-
-                        if ($hora_ini < $hora_ini_DB && $hora_fin <= $hora_ini_DB||
-                            $hora_ini >= $hora_ini_DB && $hora_ini >= $hora_fin_DB) {
-                            // print_r("entro 1  ");
-
-                        }else{
-                            return false;
-                        }
+                             // $hora_ini_DB =$this->getHoraCarbon($cita->hora_inicial);
+                             // $hora_fin_DB =$this->getHoraCarbon($cita->hora_final);
 
 
 
+                             if ($hora_ini < $hora_ini_DB && $hora_fin <= $hora_ini_DB||
+                                 $hora_ini >= $hora_ini_DB && $hora_ini >= $hora_fin_DB) {
+                                 // print_r("entro 1  ");
 
-                        /**
-                         * if ($hora_ini >= $cita->hora_inicial && $hora_ini < $cita->hora_final ||
-                         * $hora_fin > $cita->hora_inicial && $hora_fin <= $cita->hora_final) {
-                         * return false;
-                         * } else {
-                         *
-                         * }  **/
-                    }
+                             }else{
+                                 return false;
+                             }
+
+
+
+
+                             /**
+                              * if ($hora_ini >= $cita->hora_inicial && $hora_ini < $cita->hora_final ||
+                              * $hora_fin > $cita->hora_inicial && $hora_fin <= $cita->hora_final) {
+                              * return false;
+                              * } else {
+                              *
+                              * }  **/
+                         }
+
+                     }
 
 
                 }
-
-
 
             }
 
@@ -801,7 +858,11 @@ class ReunionController extends Controller
         $porciones = explode(":", $string);
        // print_r($porciones);
         //print_r('**********************');
-        $date->setTime($porciones[0],$porciones[1]);
+
+        if(is_numeric($porciones[0])&& $porciones[1]){
+            $date->setTime($porciones[0],$porciones[1]);
+        }
+
 
 
        return $date;

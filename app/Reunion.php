@@ -22,7 +22,8 @@ class Reunion extends Model
         'prioridad',
         'hastaNegociacion',
         'hastaRepetir',
-        'tipo'
+        'tipo',
+        'serie'
     ];
 
     protected $dates = ['deleted_at'];

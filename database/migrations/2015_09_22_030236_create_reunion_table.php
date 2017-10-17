@@ -26,6 +26,7 @@ class CreateReunionTable extends Migration
             $table->enum('tipo', ['organizacion', 'personal']);
             $table->integer('hastaNegociacion')->nullable();;
             $table->date('hastaRepetir')->nullable();;
+            $table->integer('serie')->nullable();;
 
             $table->timestamps();
             $table->softDeletes();
