@@ -10,10 +10,12 @@ use App\Reunion;
 use App\UserReunion;
 use App\Entidad;
 use App\Entidades\Respuesta;
+use Illuminate\Mail\Message;
 use Illuminate\Support\Facades\DB;
 use DateTime;
 use Carbon\Carbon;
 use DateInterval;
+use Illuminate\Support\Facades\Mail;
 
 class ReunionController extends Controller
 {
@@ -55,7 +57,7 @@ class ReunionController extends Controller
             // return response()->json($participantes);
 
 
-            $DatosReunion["serie"] = rand(1, 99999999999999999999);
+            $DatosReunion["serie"] = rand(1, 999999);
 
 
             if (!empty($datos["hastaRepetir"])) {
@@ -242,25 +244,44 @@ class ReunionController extends Controller
 
     public function show($user_id)
     {
+        /**
+        Mail::send('email.welcome',['name'=>'Duilio'],function (Message $message){
+            $message->to('carlosamayarodriguez3@gmail.com','Samy')
+                ->from('simulgaa@gmail.com','Simulgaa')
+                ->subject('hola mundo correo');
+        });
+         *
+         * **/
         //return $user_id;
         $respuesta = new Respuesta();
         //  $usuario = Reunion::where('email', $datos["email"])->first();
 
 
-        $users = Reunion::join('user_reunion', 'reuniones.id', '=', 'user_reunion.reunion_id')
+        $reuniones = Reunion::join('user_reunion', 'reuniones.id', '=', 'user_reunion.reunion_id')
             ->select('reuniones.*', 'user_reunion.asistencia', 'user_reunion.tipo_participante')
             ->where('user_reunion.user_id', $user_id)
             ->where('reuniones.estado', 'Programada')
             ->orderBy('reuniones.fecha', 'DESC')
             ->get();
 
+        if(count($reuniones) > 0){
+            foreach ($reuniones as $t){
+                $t["detalle"] = UserReunion::join('users', 'user_reunion.user_id', '=', 'users.id')
+                    ->join('reuniones', 'user_reunion.reunion_id', '=', 'reuniones.id')
+                    ->where('user_reunion.reunion_id', $t["id"])
+                    ->select('users.*', 'user_reunion.*')
+                    ->get();
+            }
+        }
 
 
 
-        if ($users) {
+
+
+        if (count($reuniones) > 0) {
             $respuesta->error = false;
             $respuesta->mensaje = "Datos encontrados";
-            $respuesta->datos = $users;
+            $respuesta->datos = $reuniones;
         } else {
             $respuesta->error = true;
             $respuesta->mensaje = "No tiene reuniones";
